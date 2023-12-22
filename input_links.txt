@@ -1,1 +1,2 @@
-https://bryansk.hh.ru/search/vacancy?area=19&area=1828&part_time=from_four_to_six_hours_in_a_day&part_time=employment_part&search_field=name&search_field=company_name&search_field=description&enable_snippets=false&text=программист&L_save_area=true
+https://bryansk.hh.ru/search/vacancy?ored_clusters=true&area=1828&hhtmFrom=vacancy_search_list&hhtmFromLabel=vacancy_search_line&search_field=name&search_field=company_name&search_field=description&enable_snippets=false&text=Программист&L_save_area=true
+https://bryansk.hh.ru/search/vacancy?ored_clusters=true&area=1913&search_field=name&search_field=company_name&search_field=description&enable_snippets=false&L_save_area=true&disableBrowserCache=true&text=Программист
