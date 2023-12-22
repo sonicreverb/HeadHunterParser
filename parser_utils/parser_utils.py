@@ -1,31 +1,28 @@
-import requests
-
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
 
 
-# принимает url страницы и возвращает её HTML код
-def get_html(url: str):
-    response = requests.get(url)
-    if response.ok:
-        return response.text
-    else:
-        return None
+# возвращает driver
+def create_driver():
+    print('[DRIVER INFO] Driver created successfully.\n')
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
 
-# принимает url страницы и возвращает объект soup
-def get_soup(url: str):
-    html_text = get_html(url)
-    if html_text:
-        soup = BeautifulSoup(html_text,  'html.parser')
+# закрывает все окна и завершает сеанс driver
+def kill_driver(driver):
+    driver.close()
+    driver.quit()
+    print('[DRIVER INFO] Driver was closed successfully.\n')
+
+
+# возвращает soup указанной страницы
+def get_htmlsoup(driver):
+    try:
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
         return soup
-    else:
+
+    except Exception as exc:
+        print(f'[GET SOUP] Error while trying to get soup was accuired {exc}')
         return None
-
-
-# принимает на вход массив с вакансиями и добавляет в него ссылки на вакансии
-def get_vacancy_links_from_page(url: str, vacancy_list: list):
-    soup = get_html(url)
-    if soup:
-        ...
-    else:
-        print(f"[GET VACANCIES LINKS] Не удалось получить ссылки на вакансии на странице {url}")
