@@ -1,2 +1,1 @@
-https://bryansk.hh.ru/search/vacancy?ored_clusters=true&area=1828&hhtmFrom=vacancy_search_list&hhtmFromLabel=vacancy_search_line&search_field=name&search_field=company_name&search_field=description&enable_snippets=false&text=Программист&L_save_area=true
-https://bryansk.hh.ru/search/vacancy?ored_clusters=true&area=1913&search_field=name&search_field=company_name&search_field=description&enable_snippets=false&L_save_area=true&disableBrowserCache=true&text=Программист
+https://bryansk.hh.ru/search/vacancy?text=Фермер&salary=&ored_clusters=true&area=1913&hhtmFrom=vacancy_search_list&hhtmFromLabel=vacancy_search_line
