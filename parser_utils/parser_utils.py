@@ -3,6 +3,8 @@ import os.path
 import pickle
 import time
 
+import zipfile
+
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
@@ -12,11 +14,105 @@ from selenium.common.exceptions import NoSuchElementException
 from bs4 import BeautifulSoup
 
 
+# считывает из файла proxy.txt параметры прокси
+def get_proxy_creds():
+    result = {'host': '', 'port': '', 'login': '', 'password': ''}
+    if os.path.exists('proxy.txt'):
+        with open('proxy.txt', 'r') as file:
+            array_of_lines = file.readlines()
+        result['host'] = array_of_lines[0].strip()
+        result['port'] = array_of_lines[1].strip()
+        result['login'] = array_of_lines[2].strip()
+        result['password'] = array_of_lines[3].strip()
+
+        print(f'[SET PROXY] Данные прокси успешно получены '
+              f'({result["host"]}:{result["port"]} login - {result["login"]} password - {result["password"]})')
+        return result
+    else:
+        print('[SET PROXY] Не удалось найти файл с настройками прокси \'proxy.txt\'')
+        return None
+
+
+manifest_json = """
+{
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "name": "Chrome Proxy",
+    "permissions": [
+        "proxy",
+        "tabs",
+        "unlimitedStorage",
+        "storage",
+        "<all_urls>",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "minimum_chrome_version":"22.0.0"
+}
+"""
+
+
 # Возвращает настроенный driver с отключенной загрузкой изображений
 def create_driver():
     chrome_options = Options()
+
+    try:
+        proxy_data = get_proxy_creds()
+    except Exception as _ex:
+        print(f'[SET PROXY] Не удалось получить параметры прокси. Ошибка ({_ex})')
+        proxy_data = False
+
+    if proxy_data:
+        proxy_host = proxy_data.get('host')
+        proxy_port = proxy_data.get('port')
+        proxy_username = proxy_data.get('login')
+        proxy_password = proxy_data.get('password')
+
+        background_js = """
+                var config = {
+                        mode: "fixed_servers",
+                        rules: {
+                        singleProxy: {
+                            scheme: "http",
+                            host: "%s",
+                            port: parseInt(%s)
+                        },
+                        bypassList: ["localhost"]
+                        }
+                    };
+
+                chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+
+                function callbackFn(details) {
+                    return {
+                        authCredentials: {
+                            username: "%s",
+                            password: "%s"
+                        }
+                    };
+                }
+
+                chrome.webRequest.onAuthRequired.addListener(
+                            callbackFn,
+                            {urls: ["<all_urls>"]},
+                            ['blocking']
+                );
+                """ % (proxy_host, proxy_port, proxy_username, proxy_password)
+        pluginfile = 'proxy_auth_plugin.zip'
+
+        with zipfile.ZipFile(pluginfile, 'w') as zp:
+            zp.writestr("manifest.json", manifest_json)
+            zp.writestr("background.js", background_js)
+        chrome_options.add_extension(pluginfile)
+
     prefs = {"profile.managed_default_content_settings.images": 2}
     chrome_options.add_experimental_option("prefs", prefs)
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 "
+                                "Firefox/84.0")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
@@ -111,10 +207,10 @@ def auth_and_save_cookies(driver):
                                                     '1]/div/div/div/div/div/div[1] '
                                                     '/div[1]/div/form/div[6]/button[1]')
         buttonLogin.click()
-        time.sleep(5)
+        time.sleep(2)
         # сохранение cookies
-        pickle.dump(driver.get_cookies(), open('cookies.pkl', 'wb'))
-        print(f'[AUTHENTICATION] Авторизация успешна. Кукис получены.')
+        # pickle.dump(driver.get_cookies(), open('cookies.pkl', 'wb'))
+        # print(f'[AUTHENTICATION] Авторизация успешна. Кукис получены.')
     except Exception as _ex:
         print(f'[AUTHENTICATION] Не удалось войти в аккаунт и сохранить куки. Ошибка: ({_ex}).')
 
@@ -134,12 +230,13 @@ def load_cookies(driver):
     except Exception as _ex:
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             print(cookie)
-        print(f'[COOKIES LOAD] Ошибка во время попытки загрузить куки ({_ex})')
+        print(f'[COOKIES LOAD] Ошибка во время попытки загрузить куки ({_ex}).')
         return False
 
 
 # принимает на вход драйвер и url вакансии, возвращает словарь с информацией о вакансии
 def get_data(driver, url):
+    print(f'[GET VACANCY DATA] Получение информации об вакансии ({url}).')
     change_driver_url(driver, url)
     vacancy_data = {'Post': '', 'Salary': '', 'ReqWorkExp': '', 'TypeOfEmployment': '', 'CompanyName': '',
                     'CompanyInfo': '', 'Duties': '', 'Requirements': '', 'Working conditions': '', 'Downmark': '',
@@ -157,13 +254,14 @@ def get_data(driver, url):
 
     # Зарплата
     salary_element = soup.find('span', {'data-qa': 'vacancy-salary-compensation-type-net'})
-    if not salary_element:
+    vacancy_data['Salary'] = get_text_or_empty(salary_element)
+
+    if vacancy_data['Salary'] == '':
         salary_element = soup.find('span', {'data-qa': 'vacancy-salary-compensation-type-gross'})
+        vacancy_data['Salary'] = get_text_or_empty(salary_element)
         if not salary_element:
             # raise Exception(f"Не удалось получить заработную плату ({url})")
             vacancy_data['Salary'] = 'Не указана'
-        else:
-            vacancy_data['Salary'] = get_text_or_empty(salary_element)
 
     # Требуемый опыт работы
     experience_element = soup.find('p', {'class': 'vacancy-description-list-item'})
@@ -177,14 +275,16 @@ def get_data(driver, url):
     company_name_element = soup.find('span', {'data-qa': 'bloko-header-2'})
     vacancy_data['CompanyName'] = get_text_or_empty(company_name_element)
 
-    # Информация о компании
-    vacancy_data['CompanyInfo'] = ''
-
     description_block = soup.find('div', class_='g-user-content')
     if not description_block:
-        raise Exception(f"Не удалось найти описание ({url})")
+        raise Exception(f"Не удалось найти описание")
 
     description_block_text = description_block.get_text()
+    paragraphs = description_block.find_all('p')
+
+    # Информация о компании
+    if paragraphs:
+        vacancy_data['CompanyInfo'] = paragraphs[0].get_text()
 
     # Основные задачи
     duty_patterns = ['Обязанности:', 'Чем предстоит заниматься:', 'Задачи:', 'Что важно и что делать?',
@@ -209,7 +309,6 @@ def get_data(driver, url):
             break
 
     # Пометка снизу
-    paragraphs = description_block.find_all('p')
     if paragraphs:
         vacancy_data['Downmark'] = paragraphs[len(paragraphs) - 1].get_text()
 
@@ -268,16 +367,17 @@ def get_data(driver, url):
     host = url[:url.find("/vacancy")]
     company_hh_url = soup.find('a', {'data-qa': 'vacancy-company-name'})
     if not company_hh_url:
-        raise Exception(f"Не удалось получить информацию об компании ({url}).")
+        raise Exception(f"Не удалось получить информацию об компании")
 
     company_hh_url = host + company_hh_url.get('href')
+    print(f'[GET VACANCY DATA] Переход на страницу компании ({company_hh_url}).')
     change_driver_url(driver, company_hh_url)
 
     soup = get_htmlsoup(driver)
 
     employeer_block = soup.find('div', class_='employer-sidebar')
     if not employeer_block:
-        raise Exception(f"Не удалось получить информацию об нанимателе. ({url})")
+        raise Exception(f"Не удалось получить информацию об нанимателе")
 
     employeer_sidebar = employeer_block.find_all('div', class_='employer-sidebar-block')
 

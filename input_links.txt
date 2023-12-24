@@ -1,1 +1,1 @@
-https://bryansk.hh.ru/search/vacancy?text=Фермер&salary=&ored_clusters=true&area=1913&hhtmFrom=vacancy_search_list&hhtmFromLabel=vacancy_search_line
+https://hh.ru/search/vacancy?text=%D0%9C%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BE%D0%BB%D0%BE%D0%B3&from=suggest_post&salary=&schedule=remote&ored_clusters=true&search_period=30&area=113&hhtmFrom=vacancy_search_list&hhtmFromLabel=vacancy_search_line
